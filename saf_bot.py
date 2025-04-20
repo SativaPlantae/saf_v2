@@ -1,19 +1,36 @@
 import os
+import subprocess
+
+# ✅ Corrige o ambiente do Streamlit Cloud na hora
+subprocess.run([
+    "pip", "install",
+    "pydantic==2.6.4",
+    "langchain==0.1.16",
+    "langchain-openai==0.1.3",
+    "openai==1.14.3",
+    "chromadb==0.4.24",
+    "streamlit==1.32.2",
+    "python-dotenv==1.0.1",
+    "pandas==2.2.2"
+])
+
 import streamlit as st
 import pandas as pd
 import re
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
-from langchain.schema import Document
+from langchain_core.documents import Document  # ✅ novo import compatível com pydantic v2
 
+# 🔐 Chave da OpenAI via variável de ambiente
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+# 🔧 Função para carregar e limpar dados da planilha
 def carregar_e_limpar_dados(caminho_csv: str) -> pd.DataFrame:
     df = pd.read_csv(caminho_csv, sep=";")
 
@@ -26,9 +43,7 @@ def carregar_e_limpar_dados(caminho_csv: str) -> pd.DataFrame:
                 return valor
         return valor
 
-    colunas_monetarias = [
-        "Faturamento anual", "Despesas anuais", "Lucro anual", "Preço de venda"
-    ]
+    colunas_monetarias = ["Faturamento anual", "Despesas anuais", "Lucro anual", "Preço de venda"]
 
     for coluna in colunas_monetarias:
         if coluna in df.columns:
@@ -51,6 +66,7 @@ def carregar_e_limpar_dados(caminho_csv: str) -> pd.DataFrame:
 
     return df
 
+# 🧠 Cadeia com memória
 @st.cache_resource
 def carregar_chain_com_memoria():
     df = carregar_e_limpar_dados("data.csv")
@@ -99,25 +115,29 @@ Resposta:"""
 
     return chain
 
-# 🌱 Interface
+# 🌱 Interface do app
 st.set_page_config(page_title="Chatbot SAF Cristal 🌱", page_icon="🐝")
 st.title("🐝 Chatbot do SAF Cristal")
 st.markdown("Converse com o assistente sobre o Sistema Agroflorestal Cristal 📊")
 
+# 🧹 Botão de limpeza
 if st.button("🧹 Limpar conversa"):
     st.session_state.clear()
     st.experimental_rerun()
 
+# Estado inicial
 if "mensagens" not in st.session_state:
     st.session_state.mensagens = []
 
 if "qa_chain" not in st.session_state:
     st.session_state.qa_chain = carregar_chain_com_memoria()
 
+# Exibe o histórico
 for remetente, mensagem in st.session_state.mensagens:
     with st.chat_message("user" if remetente == "🧑‍🌾" else "assistant", avatar=remetente):
         st.markdown(mensagem)
 
+# Entrada do usuário
 user_input = st.chat_input("Digite sua pergunta aqui...")
 
 if user_input:
